@@ -1,0 +1,18 @@
+[tool.poetry]
+name = "vnyan-discord-listener"
+version = "0.1.0"
+description = "Translate Discord commands to vnyan websocket commands"
+license = "MIT"
+authors = ["Latent Logic <lat.logic@gmail.com>"]
+readme = "README.md"
+packages = [{include = "vnyan_discord_listener"}]
+
+[tool.poetry.dependencies]
+python = "^3.8"
+"discord.py" = "^2.3.0"
+toml = "^0.10.2"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
