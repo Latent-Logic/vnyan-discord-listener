@@ -3,5 +3,5 @@ token = "super.long.token-string"  # Discord bot token
 vnyan_socket = "ws://127.0.0.1:8000/vnyan"  # URL for VNyan websocket
 
 [guilds.123456789012345678]  # Guild ID number to use
-control.roles = [123456789012345678]  # Comma separated list of roles
-control.rooms = [123456789012345678]  # Comma separated list of rooms to listen in
+roles = [123456789012345678]  # Comma separated list of roles
+channels = [123456789012345678]  # Comma separated list of channels to listen in
