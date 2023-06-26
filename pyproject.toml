@@ -12,6 +12,11 @@ python = "^3.8"
 "discord.py" = "^2.3.0"
 toml = "^0.10.2"
 
+[tool.isort]
+profile = "black"
+
+[tool.black]
+line-length = 120
 
 [build-system]
 requires = ["poetry-core"]
