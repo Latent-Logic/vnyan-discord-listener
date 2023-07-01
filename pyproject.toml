@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "vnyan-discord-listener"
-version = "0.2.0"
+version = "0.3.0"
 description = "Translate Discord commands to vnyan websocket commands"
 license = "MIT"
 authors = ["Latent Logic <lat.logic@gmail.com>"]
