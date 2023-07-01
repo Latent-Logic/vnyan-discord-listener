@@ -5,6 +5,7 @@ from typing import Dict, List, NamedTuple, Optional, Union
 import aiohttp
 import discord
 import toml
+from aiohttp import ClientConnectorError
 from discord.ext.commands import Bot, CommandError, Context
 
 logging.basicConfig(level=logging.DEBUG, format="%(asctime)s\t%(levelname)-7s\t%(name)s\t%(message)s")
@@ -148,9 +149,17 @@ async def on_message(message: discord.Message):
     except ValueError as err:
         await message.channel.send(f"{err}", delete_after=30)
         return
-    async with aiohttp.ClientSession() as session:
-        async with session.ws_connect(SETTINGS["bot"]["vnyan_socket"]) as ws:
-            await ws.send_str(to_send)
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.ws_connect(SETTINGS["bot"]["vnyan_socket"]) as ws:
+                await ws.send_str(to_send)
+    except ClientConnectorError:
+        await message.channel.send(
+            f'Failed to connect to WebSocket, is vNyan listening at `{SETTINGS["bot"]["vnyan_socket"]}`?',
+            delete_after=30,
+        )
+        log.error(f'Failed to connect to WebSocket, is vNyan listening at {SETTINGS["bot"]["vnyan_socket"]}?')
+        return
     await message.add_reaction("✅")
 
 
@@ -191,9 +200,17 @@ async def ws_add(ctx: Context, cmd: str, ws_str: str):
 async def ws_cat(ctx: Context, data: str):
     """Echo message out to the websocket"""
     perm_check(ctx.guild, ctx.channel, ctx.author)
-    async with aiohttp.ClientSession() as session:
-        async with session.ws_connect(SETTINGS["bot"]["vnyan_socket"]) as ws:
-            await ws.send_str(data)
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.ws_connect(SETTINGS["bot"]["vnyan_socket"]) as ws:
+                await ws.send_str(data)
+    except ClientConnectorError:
+        await ctx.channel.send(
+            f'Failed to connect to WebSocket, is vNyan listening at `{SETTINGS["bot"]["vnyan_socket"]}`?',
+            delete_after=30,
+        )
+        log.error(f'Failed to connect to WebSocket, is vNyan listening at {SETTINGS["bot"]["vnyan_socket"]}?')
+        return
     await ctx.message.add_reaction("✅")
 
 
