@@ -127,8 +127,8 @@ async def ws_list(ctx: Context):
     """List all configured websocket commands"""
     commands = SETTINGS["commands"]
     out_str = "\n".join(
-        f"`={k}`: {v}" if isinstance(v, str) else f'`={k}`: {v.get("help", "No Help Provided")}'
-        for k, v in commands.items()
+        f"`={k}`: {v}" if isinstance(v, str) else f'`={k} {v.get("arg", "")}`: {v.get("help", "No Help Provided")}'
+        for k, v in sorted(commands.items(), key=lambda x: x[0])
     )
     await ctx.send(out_str)
 
