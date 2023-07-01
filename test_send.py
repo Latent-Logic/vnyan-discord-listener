@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from typing import Dict, List, NamedTuple, Optional, Union
+from typing import Dict, NamedTuple, Optional, Union
 
 import aiohttp
 import discord
@@ -55,22 +55,24 @@ class Command(NamedTuple):
         ret_str += f": {self.help}"
         return ret_str
 
-    def to_send(self, items: List[str]):
+    def to_send(self, item: Optional[str]):
         if self.arg == "<int>":
-            if not items:
+            if not item:
                 raise ValueError(f"No argument found for `={self.name}` (should be a number)")
             try:
-                int(items[0])
+                int(item)
             except ValueError:
                 raise ValueError(f"Argument for `={self.name}` must be an number")
-            return f"{self.ws_cmd} {items[0]}"
+            return f"{self.ws_cmd} {item}"
         elif self.arg == "<str>":
-            if not items:
+            if not item:
                 raise ValueError(f"No argument found for `={self.name}`")
-            return f"{self.ws_cmd} {items[0]}"
+            return f"{self.ws_cmd} {item}"
         else:
             if self.arg is not None:
-                ValueError(f"Command `={self.name}` has unknown arg {self.arg}")
+                raise ValueError(f"Command `={self.name}` has unknown arg type of {self.arg}")
+            elif item:
+                raise ValueError(f"Command `={self.name}` does not accept arguments")
         return f"{self.ws_cmd}"
 
 
@@ -141,6 +143,7 @@ async def on_message(message: discord.Message):
         log.debug(f"Ignoring {message} because {err}")
         return
     cmd, *rest = message.content[1:].split(maxsplit=1)  # Strip the = from the start of the message
+    rest: Optional[str] = rest[0] if rest else None
     if cmd not in COMMANDS:
         await message.channel.send(f"Unknown command `={cmd}`, check `?ws_list`", delete_after=30)
         return
