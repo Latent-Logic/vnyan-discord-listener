@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from typing import Dict, List, NamedTuple, Optional, Union
 
 import aiohttp
 import discord
@@ -21,6 +22,58 @@ intents.voice_states = False
 intents.typing = False
 
 bot = Bot(command_prefix="?", description=description, intents=intents)
+
+
+class Command(NamedTuple):
+    name: str
+    help: str
+    ws_cmd: str
+    arg: Optional[str] = None
+
+    @classmethod
+    def create(cls, name: str, help_or_blob: Union[str, Dict[str, str]]):
+        """Create a Command object from either a help string or a dict"""
+        if isinstance(help_or_blob, str):
+            return cls(name, help_or_blob, name)
+        elif isinstance(help_or_blob, dict):
+            arg = help_or_blob.get("arg")
+            if arg:
+                assert arg in {"<int>", "<str>"}, f"command {name} has a non-recognized arg {arg}"
+            return cls(
+                name,
+                help_or_blob.get("help", "No Help Provided"),
+                help_or_blob.get("ws", name),
+                arg,
+            )
+
+    def discord_help(self, verbose: bool = False):
+        """Returns a pretty print string for Discord"""
+        ret_str = f"`={self.name} {self.arg}`" if self.arg else f"`={self.name}`"
+        if verbose:
+            ret_str += f" sends `{self.ws_cmd}`"
+        ret_str += f": {self.help}"
+        return ret_str
+
+    def to_send(self, items: List[str]):
+        if self.arg == "<int>":
+            if not items:
+                raise ValueError(f"No argument found for {self.name} (should be a number)")
+            try:
+                int(items[0])
+            except ValueError:
+                raise ValueError(f"Argument for {self.name} must be an number")
+            return f"{self.ws_cmd} {items[0]}"
+        elif self.arg == "<str>":
+            if not items:
+                raise ValueError(f"No argument found for {self.name}")
+            return f"{self.ws_cmd} {items[0]}"
+        else:
+            if self.arg is not None:
+                ValueError(f"Command {self.name} has unknown arg {self.arg}")
+        return f"{self.ws_cmd}"
+
+
+COMMANDS: Dict[str, Command] = {}  # Dict of Command objects
 
 
 @bot.event
@@ -87,49 +140,24 @@ async def on_message(message: discord.Message):
         log.debug(f"Ignoring {message} because {err}")
         return
     cmd, *rest = message.content[1:].split(maxsplit=1)  # Strip the = from the start of the message
-    if cmd not in SETTINGS["commands"]:
+    if cmd not in COMMANDS:
         await message.channel.send(f"Unknown command {cmd}, check `?ws_list`", delete_after=30)
         return
-    value = SETTINGS["commands"][cmd]
-    if isinstance(value, str):  # Help string, nothing more to do here
-        pass
-    elif isinstance(value, dict):
-        cmd = value.get("ws", cmd)  # Allow config to change command sent to web socket
-        arg_type = value.get("arg")
-        if arg_type == "<int>":
-            if not rest:
-                await message.channel.send(f"No argument found for {cmd} (should be a number)", delete_after=30)
-                return
-            try:
-                int(rest[0])
-            except ValueError:
-                await message.channel.send(f"Argument for {cmd} must be an number", delete_after=30)
-                return
-            cmd = f"{cmd} {rest[0]}"
-        elif arg_type == "<str>":
-            if not rest:
-                await message.channel.send(f"No argument found for {cmd}", delete_after=30)
-                return
-            cmd = f"{cmd} {rest}"
-        else:
-            if arg_type is not None:
-                ValueError(f"Command {cmd} has unknown arg {arg_type}")
-    else:
-        raise ValueError(f"Unknown configuration for command {cmd}")
+    try:
+        to_send = COMMANDS[cmd].to_send(rest)
+    except ValueError as err:
+        await message.channel.send(f"{err}", delete_after=30)
+        return
     async with aiohttp.ClientSession() as session:
         async with session.ws_connect(SETTINGS["bot"]["vnyan_socket"]) as ws:
-            await ws.send_str(cmd)
+            await ws.send_str(to_send)
     await message.add_reaction("✅")
 
 
 @bot.command()
-async def ws_list(ctx: Context):
+async def ws_list(ctx: Context, verbose: bool = False):
     """List all configured websocket commands"""
-    commands = SETTINGS["commands"]
-    out_str = "\n".join(
-        f"`={k}`: {v}" if isinstance(v, str) else f'`={k} {v.get("arg", "")}`: {v.get("help", "No Help Provided")}'
-        for k, v in sorted(commands.items(), key=lambda x: x[0])
-    )
+    out_str = "\n".join(COMMANDS[k].discord_help(verbose) for k in sorted(COMMANDS))
     await ctx.send(out_str)
 
 
@@ -139,10 +167,9 @@ async def ws_del(ctx: Context, cmd: str):
 
     Any changes will need to be manually updated in settings.toml before next run"""
     perm_check(ctx.guild, ctx.channel, ctx.author)
-    commands = SETTINGS["commands"]
-    if cmd not in commands:
+    if cmd not in COMMANDS:
         raise CommandError(f"Failed to delete as {cmd} not found in commands")
-    del commands[cmd]
+    del COMMANDS[cmd]
     log.info(f"User {ctx.author} has removed ={cmd} from the running instance")
     await ctx.message.add_reaction("✅")
 
@@ -153,16 +180,9 @@ async def ws_add(ctx: Context, cmd: str, ws_str: str):
 
     Any changes will need to be manually updated in settings.toml before next run"""
     perm_check(ctx.guild, ctx.channel, ctx.author)
-    commands = SETTINGS["commands"]
-    if cmd in commands:
+    if cmd in COMMANDS:
         raise CommandError(f"Can't add {cmd} as it already exists, use `?ws_del {cmd}` if you want to change it")
-    if cmd == ws_str:
-        commands[cmd] = f"Temporarily added command `={cmd}` which sends `{ws_str}` to the web socket"
-    else:
-        commands[cmd] = {
-            "ws": ws_str,
-            "help": f"Temporarily added command `={cmd}` which sends `{ws_str}` to the web socket",
-        }
+    COMMANDS[cmd] = Command(cmd, f"Temporarily added command `={cmd}` which sends `{ws_str}` to the web socket", ws_str)
     log.info(f"User {ctx.author} has added ={cmd} to send {ws_str} to the running instance")
     await ctx.message.add_reaction("✅")
 
@@ -187,5 +207,6 @@ async def main(settings: dict):
 
 if __name__ == "__main__":
     SETTINGS = toml.load("settings.toml")
+    COMMANDS = {k: Command.create(k, v) for k, v in SETTINGS["commands"].items()}
 
     asyncio.run(main(SETTINGS))
