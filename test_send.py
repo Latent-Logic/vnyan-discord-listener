@@ -58,19 +58,19 @@ class Command(NamedTuple):
     def to_send(self, items: List[str]):
         if self.arg == "<int>":
             if not items:
-                raise ValueError(f"No argument found for {self.name} (should be a number)")
+                raise ValueError(f"No argument found for `={self.name}` (should be a number)")
             try:
                 int(items[0])
             except ValueError:
-                raise ValueError(f"Argument for {self.name} must be an number")
+                raise ValueError(f"Argument for `={self.name}` must be an number")
             return f"{self.ws_cmd} {items[0]}"
         elif self.arg == "<str>":
             if not items:
-                raise ValueError(f"No argument found for {self.name}")
+                raise ValueError(f"No argument found for `={self.name}`")
             return f"{self.ws_cmd} {items[0]}"
         else:
             if self.arg is not None:
-                ValueError(f"Command {self.name} has unknown arg {self.arg}")
+                ValueError(f"Command `={self.name}` has unknown arg {self.arg}")
         return f"{self.ws_cmd}"
 
 
@@ -142,7 +142,7 @@ async def on_message(message: discord.Message):
         return
     cmd, *rest = message.content[1:].split(maxsplit=1)  # Strip the = from the start of the message
     if cmd not in COMMANDS:
-        await message.channel.send(f"Unknown command {cmd}, check `?ws_list`", delete_after=30)
+        await message.channel.send(f"Unknown command `={cmd}`, check `?ws_list`", delete_after=30)
         return
     try:
         to_send = COMMANDS[cmd].to_send(rest)
@@ -177,7 +177,7 @@ async def ws_del(ctx: Context, cmd: str):
     Any changes will need to be manually updated in settings.toml before next run"""
     perm_check(ctx.guild, ctx.channel, ctx.author)
     if cmd not in COMMANDS:
-        raise CommandError(f"Failed to delete as {cmd} not found in commands")
+        raise CommandError(f"Failed to delete as `={cmd}` not found in commands")
     del COMMANDS[cmd]
     log.info(f"User {ctx.author} has removed ={cmd} from the running instance")
     await ctx.message.add_reaction("✅")
