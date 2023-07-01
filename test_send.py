@@ -134,6 +134,40 @@ async def ws_list(ctx: Context):
 
 
 @bot.command()
+async def ws_del(ctx: Context, cmd: str):
+    """Temporarily remove a =command in the currently running program
+
+    Any changes will need to be manually updated in settings.toml before next run"""
+    perm_check(ctx.guild, ctx.channel, ctx.author)
+    commands = SETTINGS["commands"]
+    if cmd not in commands:
+        raise CommandError(f"Failed to delete as {cmd} not found in commands")
+    del commands[cmd]
+    log.info(f"User {ctx.author} has removed ={cmd} from the running instance")
+    await ctx.message.add_reaction("✅")
+
+
+@bot.command()
+async def ws_add(ctx: Context, cmd: str, ws_str: str):
+    """Temporarily add a =command in the currently running program
+
+    Any changes will need to be manually updated in settings.toml before next run"""
+    perm_check(ctx.guild, ctx.channel, ctx.author)
+    commands = SETTINGS["commands"]
+    if cmd in commands:
+        raise CommandError(f"Can't add {cmd} as it already exists, use `?ws_del {cmd}` if you want to change it")
+    if cmd == ws_str:
+        commands[cmd] = f"Temporarily added command `={cmd}` which sends `{ws_str}` to the web socket"
+    else:
+        commands[cmd] = {
+            "ws": ws_str,
+            "help": f"Temporarily added command `={cmd}` which sends `{ws_str}` to the web socket",
+        }
+    log.info(f"User {ctx.author} has added ={cmd} to send {ws_str} to the running instance")
+    await ctx.message.add_reaction("✅")
+
+
+@bot.command()
 async def ws_cat(ctx: Context, data: str):
     """Echo message out to the websocket"""
     perm_check(ctx.guild, ctx.channel, ctx.author)
