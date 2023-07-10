@@ -8,7 +8,8 @@ vnyan_socket = "ws://127.0.0.1:8000/vnyan"  # URL for VNyan websocket
 # If it is a dict it can have the following keys:
 # * help - text about command
 # * ws - raw command to send over web socket
-# * arg - "<str>" or "<int>" or none
+# * arg - "[str]", "<str>", "[int]", "<int>" or none
+#         args are required if they are `<>`, optional if `[]`
 c11 = "Top Left Camera"
 c12 = "Top Center Camera"
 c13 = "Top Right Camera"
@@ -20,11 +21,11 @@ c25 = "Center Center Distant Camera"
 c31 = "Bottom Left Camera"
 c32 = "Bottom Center Camera"
 c33 = "Bottom Right Camera"
-spin_streamer = {"ws" = "spin", "help" = "Spin the streamer"}
+spin_streamer = {ws="spin", help="Spin the streamer"}
 
 [commands.follow]
 help = "Test command to send a follow action, add string to attach"
-arg = "<str>"
+arg = [str]"
 
 [commands.zoom]
 help = "Change the zoom on the camera"
