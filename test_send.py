@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from enum import Enum
 from typing import Dict, NamedTuple, Optional, Union
 
 import aiohttp
@@ -25,11 +26,18 @@ intents.typing = False
 bot = Bot(command_prefix="?", description=description, intents=intents)
 
 
+class ArgEnum(Enum):
+    opt_int = "[int]"
+    opt_str = "[str]"
+    req_int = "<int>"
+    req_str = "<str>"
+
+
 class Command(NamedTuple):
     name: str
     help: str
     ws_cmd: str
-    arg: Optional[str] = None
+    arg: Optional[ArgEnum] = None
 
     @classmethod
     def create(cls, name: str, help_or_blob: Union[str, Dict[str, str]]):
@@ -39,41 +47,48 @@ class Command(NamedTuple):
         elif isinstance(help_or_blob, dict):
             arg = help_or_blob.get("arg")
             if arg:
-                assert arg in {"<int>", "<str>"}, f"command {name} has a non-recognized arg {arg}"
+                try:
+                    ArgEnum(arg)
+                except ValueError:
+                    raise ValueError(f"command {name} has {arg}, not one of {[x.value for x in ArgEnum]}")
             return cls(
                 name,
                 help_or_blob.get("help", "No Help Provided"),
                 help_or_blob.get("ws", name),
-                arg,
+                ArgEnum(arg) if arg else None,
             )
 
     def discord_help(self, verbose: bool = False):
         """Returns a pretty print string for Discord"""
-        ret_str = f"`={self.name} {self.arg}`" if self.arg else f"`={self.name}`"
+        ret_str = f"`={self.name} {self.arg.value}`" if self.arg else f"`={self.name}`"
         if verbose:
             ret_str += f" sends `{self.ws_cmd}`"
         ret_str += f": {self.help}"
         return ret_str
 
     def to_send(self, item: Optional[str]):
-        if self.arg == "<int>":
+        if self.arg in {ArgEnum.opt_int, ArgEnum.req_int}:
             if not item:
-                raise ValueError(f"No argument found for `={self.name}` (should be a number)")
+                if self.arg is ArgEnum.req_int:
+                    raise ValueError(f"No argument found for `={self.name}` (must be a number)")
+                return self.ws_cmd
             try:
                 int(item)
             except ValueError:
                 raise ValueError(f"Argument for `={self.name}` must be an number")
             return f"{self.ws_cmd} {item}"
-        elif self.arg == "<str>":
+        elif self.arg in {ArgEnum.opt_str, ArgEnum.req_str}:
             if not item:
-                raise ValueError(f"No argument found for `={self.name}`")
+                if self.arg is ArgEnum.req_str:
+                    raise ValueError(f"No argument found for `={self.name}`")
+                return self.ws_cmd
             return f"{self.ws_cmd} {item}"
         else:
             if self.arg is not None:
                 raise ValueError(f"Command `={self.name}` has unknown arg type of {self.arg}")
             elif item:
                 raise ValueError(f"Command `={self.name}` does not accept arguments")
-        return f"{self.ws_cmd}"
+        return self.ws_cmd
 
 
 COMMANDS: Dict[str, Command] = {}  # Dict of Command objects
